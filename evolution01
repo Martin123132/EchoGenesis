@@ -1,0 +1,804 @@
+import random
+import pandas as pd
+
+# === Trait bounds for mutation
+trait_bounds = {
+G    'Echo Score': (0.001, 0.8),
+    'Collapse Count': (30, 90),
+    'Avg Curvature': (0.15, 0.22),
+    'Avg Tension': (0.004, 0.01),
+    'Phase Divergence': (40.0, 220.0)
+}
+
+# === Risk scoring logic
+def compute_risk(curv, tens, echo, phase):
+    score = 0
+    if curv > 0.19: score += 30
+    if tens < 0.005: score += 25
+    if echo < 0.01: score += 20
+    if phase > 150: score += 15
+    if echo > 0.8 and phase < 5: score -= 30
+    return round(score, 2)
+
+# === Species logic
+def assign_species(traits):
+    echo = traits['Echo Score']
+    collapse = traits['Collapse Count']
+    phase = traits['Phase Divergence']
+    curv = traits['Avg Curvature']
+    tens = traits['Avg Tension']
+    if echo > 0.8 and phase < 5:
+        return "Echo Royalty 👑"
+    elif phase > 200 and tens < 0.005:
+        return "Entropy Nomad 🧭"
+    elif collapse > 75 and curv > 0.18:
+        return "Curvature Survivor 🛡️"
+    elif echo < 0.01 and collapse < 40 and tens > 0.007:
+        return "Rebound Rebel ⚡"
+    else:
+        return "Echo Drifter 🌪️"
+
+# === Mutation engine
+def mutate_traits(parent):
+    mutated = {}
+    for trait, (low, high) in trait_bounds.items():
+        base = parent[trait]
+        noise = random.uniform(-0.1, 0.1) * (high - low)
+        val = base + noise
+        if isinstance(low, int):
+            val = max(low, min(high, int(val)))
+        else:
+            val = round(max(low, min(high, val)), 4)
+        mutated[trait] = val
+    return mutated
+
+# === Full evolution with lineage
+generations = 7
+offspring_per_gen = 6
+extinction_threshold = 60
+validator_id = 1
+parent_pool = []
+
+# === Create founders
+for _ in range(6):
+    traits = {trait: round(random.uniform(*bounds), 4)
+              if isinstance(bounds[0], float) else random.randint(*bounds)
+              for trait, bounds in trait_bounds.items()}
+    traits['Risk'] = compute_risk(traits['Avg Curvature'], traits['Avg Tension'],
+                                  traits['Echo Score'], traits['Phase Divergence'])
+    traits['Species'] = assign_species(traits)
+    traits['Parent'] = None
+    traits['Validator'] = validator_id
+    parent_pool.append(traits)
+    validator_id += 1
+
+# === Evolution loop
+evolution_log = parent_pool.copy()
+for gen in range(1, generations + 1):
+    new_gen = []
+    for parent in parent_pool:
+        for _ in range(1):
+            child = mutate_traits(parent)
+            child['Risk'] = compute_risk(child['Avg Curvature'], child['Avg Tension'],
+                                         child['Echo Score'], child['Phase Divergence'])
+            child['Species'] = assign_species(child)
+            child['Parent'] = parent['Validator']
+            child['Generation'] = gen
+            child['Validator'] = validator_id
+            validator_id += 1
+            if child['Risk'] < extinction_threshold:
+                new_gen.append(child)
+                evolution_log.append(child)
+    if len(new_gen) < 2:
+        print(f"💀 Generation {gen}: Population collapse")
+        break
+    parent_pool = new_gen
+
+# === Frame conversion
+df = pd.DataFrame(evolution_log)
+print("✅ Evolution restored — full lineage tracking active.")
+
+
+
+Code 2
+
+# === Track true species transitions via parent–child pairs
+transitions = []
+for _, row in df.iterrows():
+    if row["Parent"] is not None:
+        parent = df[df["Validator"] == row["Parent"]]
+        if not parent.empty:
+            parent_species = parent.iloc[0]["Species"]
+            child_species = row["Species"]
+            if parent_species != child_species:
+                deltas = {trait + " Δ": row[trait] - parent.iloc[0][trait]
+                          for trait in trait_bounds}
+                transitions.append({
+                    "Parent ID": row["Parent"],
+                    "Child ID": row["Validator"],
+                    "Gen": row["Generation"],
+                    "From": parent_species,
+                    "To": child_species,
+                    **deltas
+                })
+
+# === Create DataFrame of transitions
+transition_df = pd.DataFrame(transitions)
+print("🔁 Speciation transitions detected:", len(transition_df))
+display(transition_df.head())
+
+
+
+Code 3
+
+# === Define thresholds for trait-driven flip classifications
+def classify_flip(row):
+    echo = row["Echo Score Δ"]
+    curve = row["Avg Curvature Δ"]
+    phase = row["Phase Divergence Δ"]
+    tension = row["Avg Tension Δ"]
+    
+    if echo < -0.05 and curve > 0.003:
+        return "Echo Collapse ↘️"
+    elif curve > 0.004 and tension < 0:
+        return "Curvature Spike 🌋"
+    elif phase > 10:
+        return "Phase Rebound ⚡"
+    elif echo > 0.05 and curve < 0.002:
+        return "Echo Surge 🔊"
+    elif tension < -0.0005 and phase < 0:
+        return "Entropy Leak 🕳️"
+    else:
+        return "Mixed Trigger 🧪"
+
+# === Apply classifier to transition dataset
+transition_df["Flip Type"] = transition_df.apply(classify_flip, axis=1)
+
+# === Summary output
+flip_counts = transition_df["Flip Type"].value_counts()
+print("📊 Speciation Trigger Summary:")
+print(flip_counts)
+
+# === Optional visual
+import matplotlib.pyplot as plt
+plt.figure(figsize=(8, 5))
+flip_counts.plot(kind="bar", color="steelblue", edgecolor="black")
+plt.title("📊 Speciation Flip Trigger Types")
+plt.ylabel("Count")
+plt.xticks(rotation=30)
+plt.tight_layout()
+plt.show()
+
+
+
+Code 4 
+
+# === Group transitions by trigger type
+flip_clusters = transition_df.groupby("Flip Type").mean(numeric_only=True)
+
+print("🧬 Mean Trait Δ per Flip Type:")
+display(flip_clusters.round(4))
+
+
+
+
+Code 5
+
+import seaborn as sns
+plt.figure(figsize=(10, 6))
+sns.boxplot(data=transition_df, x="Flip Type", y="Echo Score Δ", palette="coolwarm")
+plt.title("📈 Echo Score Δ by Flip Type")
+plt.xticks(rotation=30)
+plt.tight_layout()
+plt.show()
+
+
+
+Code 6
+# === Count flips per validator
+flip_trace = transition_df["Parent ID"].value_counts()
+print("🔁 Flip recurrence per Validator:")
+print(flip_trace[flip_trace > 1])
+
+
+
+Code 7
+
+import matplotlib.pyplot as plt
+
+# === Vector arrows from origin (0,0) to each trait delta pair
+plt.figure(figsize=(10, 6))
+
+for _, row in transition_df.iterrows():
+    x = row["Echo Score Δ"]
+    y = row["Phase Divergence Δ"]
+    plt.arrow(0, 0, x, y, head_width=0.005, head_length=1, fc="coral", ec="black", alpha=0.7)
+
+    # Optional: annotate flip type
+    plt.text(x, y, row["Flip Type"].split()[0], fontsize=8, ha="center", va="center")
+
+plt.title("🎯 Trait Δ Vector Map – Echo vs Phase Divergence")
+plt.xlabel("Echo Score Δ")
+plt.ylabel("Phase Divergence Δ")
+plt.axhline(0, color='gray', linestyle='--', linewidth=1)
+plt.axvline(0, color='gray', linestyle='--', linewidth=1)
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+
+Code 8
+# === Curvature vs Tension Δ arrows per flip
+plt.figure(figsize=(10, 6))
+
+for _, row in transition_df.iterrows():
+    x = row["Avg Curvature Δ"]
+    y = row["Avg Tension Δ"]
+    plt.arrow(0, 0, x, y, head_width=0.0003, head_length=0.0003,
+              fc="teal", ec="black", alpha=0.6)
+    # Annotate trigger type (first word only)
+    plt.text(x, y, row["Flip Type"].split()[0], fontsize=8, ha="center", va="center")
+
+plt.title("🌐 Trait Δ Vector Map – Curvature vs Tension")
+plt.xlabel("Avg Curvature Δ")
+plt.ylabel("Avg Tension Δ")
+plt.axhline(0, color='gray', linestyle='--', linewidth=1)
+plt.axvline(0, color='gray', linestyle='--', linewidth=1)
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+
+Code 9
+# === Define species color palette
+species_colors = {
+    "Echo Drifter 🌪️": "gray",
+    "Curvature Survivor 🛡️": "goldenrod",
+    "Entropy Nomad 🧭": "navy",
+    "Rebound Rebel ⚡": "deeppink",
+    "Echo Royalty 👑": "purple"
+}
+
+plt.figure(figsize=(10, 6))
+
+for _, row in transition_df.iterrows():
+    x = row["Avg Curvature Δ"]
+    y = row["Avg Tension Δ"]
+    species = row["To"]
+    color = species_colors.get(species, "black")
+
+    plt.arrow(0, 0, x, y, head_width=0.0003, head_length=0.0003,
+              fc=color, ec="black", alpha=0.7)
+    plt.text(x, y, species.split()[0], fontsize=8, ha="center", va="center")
+
+plt.title("🧬 Trait Δ Vectors by Resulting Species – Curvature vs Tension")
+plt.xlabel("Avg Curvature Δ")
+plt.ylabel("Avg Tension Δ")
+plt.axhline(0, color='gray', linestyle='--', linewidth=1)
+plt.axvline(0, color='gray', linestyle='--', linewidth=1)
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+Code 10
+# === Trace each validator’s species lineage
+lineage_map = []
+
+for validator in transition_df["Child ID"].unique():
+    path = []
+    current_id = validator
+    while True:
+        entry = df[df["Validator"] == current_id]
+        if entry.empty:
+            break
+        species = entry.iloc[0]["Species"]
+        gen = entry.iloc[0]["Generation"]
+        path.append(f"Gen {gen}: {species}")
+        parent_id = entry.iloc[0]["Parent"]
+        if pd.isna(parent_id):
+            break
+        current_id = int(parent_id)
+    lineage_map.append({"Validator": validator, "Lineage": " → ".join(reversed(path))})
+
+# === Convert to DataFrame
+lineage_df = pd.DataFrame(lineage_map)
+print("🧬 Validator Flip Lineage Map:")
+display(lineage_df.head())
+
+
+Code 11
+# === Build flip chains per validator
+flip_chains = {}
+
+for idx, row in lineage_df.iterrows():
+    lineage = row["Lineage"].split(" → ")
+    species_sequence = [entry.split(": ")[-1] for entry in lineage if ": " in entry]
+    if len(species_sequence) >= 3:
+        flip_chains[row["Validator"]] = species_sequence
+
+# === Detect symmetric oscillators
+symmetric_validators = {}
+
+for vid, seq in flip_chains.items():
+    flips = [seq[i] != seq[i+1] for i in range(len(seq)-1)]
+    if all(flips) and len(set(seq)) == 2:
+        symmetric_validators[vid] = seq
+
+# === Output symmetric flip patterns
+print("🔁 Oscillating Validators (Perfect Speciation Loops):")
+for vid, seq in symmetric_validators.items():
+    print(f"Validator {vid}: {' → '.join(seq)}")
+
+
+Code 12
+import matplotlib.pyplot as plt
+
+# === Manually define validator flip sequences
+validator_sequences = {
+    18: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️"],
+    24: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️"],
+    30: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️"],
+    36: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️"],
+    42: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️"]
+}
+
+# === Species map for plotting
+species_map = {
+    "Echo Drifter 🌪️": 0,
+    "Curvature Survivor 🛡️": 1
+}
+
+# === Plot each validator's flip sequence
+plt.figure(figsize=(10, 6))
+
+for idx, (vid, species_seq) in enumerate(validator_sequences.items()):
+    generations = list(range(1, len(species_seq) + 1))
+    numeric_seq = [species_map[s] for s in species_seq]
+    plt.plot(generations, numeric_seq, marker='o', label=f"Validator {vid}")
+
+plt.yticks([0, 1], ["Echo Drifter 🌪️", "Curvature Survivor 🛡️"])
+plt.xlabel("Generation")
+plt.ylabel("Species Identity")
+plt.title("📈 Speciation Flip Cycles Across Generations")
+plt.grid(True)
+plt.legend(loc="upper right", fontsize="small")
+plt.tight_layout()
+plt.show()
+
+Code 13 
+import matplotlib.pyplot as plt
+
+# === Define Validator 42's trait deltas per flip
+generations = [1, 2, 3, 4, 5, 6]
+echo_deltas = [-0.0777, 0.0350, -0.0693, 0.0487, -0.0710, 0.0693]
+curv_deltas = [0.0046, 0.0, 0.0, 0.0, 0.004, 0.0]
+tens_deltas = [0.0004, -0.0004, -0.0006, -0.0003, 0.0001, -0.0006]
+phase_deltas = [14.57, 4.21, 0.0, -3.94, 0.15, 0.0]
+
+# === Plot
+plt.figure(figsize=(10, 6))
+plt.plot(generations, echo_deltas, marker='o', label="Echo Score Δ", color="orange")
+plt.plot(generations, curv_deltas, marker='o', label="Avg Curvature Δ", color="blue")
+plt.plot(generations, tens_deltas, marker='o', label="Avg Tension Δ", color="green")
+plt.plot(generations, phase_deltas, marker='o', label="Phase Divergence Δ", color="purple")
+
+plt.title("🔬 Validator 42 – Trait Δ per Generation")
+plt.xlabel("Generation")
+plt.ylabel("Trait Δ Magnitude")
+plt.axhline(0, color='gray', linestyle='--', linewidth=1)
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+
+Code 14
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# === Validator 42's trait deltas per flip
+trait_deltas = pd.DataFrame({
+    "Generation": [1, 2, 3, 4, 5, 6],
+    "Echo Δ": [-0.0777, 0.0350, -0.0693, 0.0487, -0.0710, 0.0693],
+    "Curvature Δ": [0.0046, 0.0, 0.0, 0.0, 0.004, 0.0],
+    "Tension Δ": [0.0004, -0.0004, -0.0006, -0.0003, 0.0001, -0.0006],
+    "Phase Δ": [14.57, 4.21, 0.0, -3.94, 0.15, 0.0]
+})
+
+# === Calculate volatility per generation (L2 norm across traits)
+def compute_volatility(row):
+    return np.sqrt(row["Echo Δ"]**2 + row["Curvature Δ"]**2 +
+                   row["Tension Δ"]**2 + row["Phase Δ"]**2)
+
+trait_deltas["Volatility Score"] = trait_deltas.apply(compute_volatility, axis=1)
+
+# === Plot volatility over time
+plt.figure(figsize=(10, 5))
+plt.plot(trait_deltas["Generation"], trait_deltas["Volatility Score"],
+         marker='o', color='crimson', label="Volatility Index")
+plt.title("🧠 Validator 42 – Volatility Score per Flip")
+plt.xlabel("Generation")
+plt.ylabel("Volatility Score")
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# === Optional: print summary
+print("🔍 Volatility Summary:")
+print(trait_deltas[["Generation", "Volatility Score"]].round(4))
+
+
+Code 15
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# === Example flip history per validator (you can extend this dictionary)
+flip_sequences = {
+    18: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️"],
+    24: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️"],
+    30: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️"],
+    36: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️"],
+    42: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️"]
+}
+
+# === Compute entropy as proportion of identity switches
+entropy_scores = {}
+
+for vid, seq in flip_sequences.items():
+    switches = sum(seq[i] != seq[i+1] for i in range(len(seq) - 1))
+    entropy = switches / (len(seq) - 1)
+    entropy_scores[vid] = entropy
+
+# === Convert to DataFrame
+entropy_df = pd.DataFrame(list(entropy_scores.items()), columns=["Validator", "Entropy Score"])
+
+# === Plot
+plt.figure(figsize=(8, 5))
+plt.bar(entropy_df["Validator"].astype(str),
+        entropy_df["Entropy Score"],
+        color="orchid", edgecolor="black")
+plt.title("🧬 Speciation Entropy Score per Validator")
+plt.xlabel("Validator")
+plt.ylabel("Entropy Score (0–1)")
+plt.ylim(0, 1.1)
+plt.grid(axis="y")
+plt.tight_layout()
+plt.show()
+
+Code 16
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# === Example transition dataset
+# Replace or extend with full biome dataset as needed
+transitions = pd.DataFrame({
+    "From": ["Echo Drifter 🌪️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️"],
+    "To":   ["Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️"]
+})
+
+# === Compute transition counts
+transition_counts = transitions.groupby(["From", "To"]).size().unstack(fill_value=0)
+
+# === Normalize to proportions (optional)
+transition_props = transition_counts.div(transition_counts.sum(axis=1), axis=0)
+
+# === Plot matrix as heatmap
+plt.figure(figsize=(8, 6))
+sns.heatmap(transition_props, annot=True, cmap="coolwarm", cbar=True,
+            fmt=".2f", linewidths=0.5, linecolor="gray")
+plt.title("🔁 Speciation Transition Matrix (Proportions)")
+plt.xlabel("To Species")
+plt.ylabel("From Species")
+plt.tight_layout()
+plt.show()
+
+Code 17
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# === Reuse flip sequence data
+flip_sequences = {
+    18: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️"],
+    24: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️"],
+    30: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️"],
+    36: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️"],
+    42: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️"]
+}
+
+# === Track persistence lengths per species per validator
+persistence_data = []
+
+for vid, seq in flip_sequences.items():
+    current_species = seq[0]
+    count = 1
+    for i in range(1, len(seq)):
+        if seq[i] == current_species:
+            count += 1
+        else:
+            persistence_data.append((vid, current_species, count))
+            current_species = seq[i]
+            count = 1
+    persistence_data.append((vid, current_species, count))
+
+# === Create DataFrame and plot
+persistence_df = pd.DataFrame(persistence_data, columns=["Validator", "Species", "Persistence Length"])
+
+plt.figure(figsize=(8, 6))
+sns.boxplot(data=persistence_df, x="Species", y="Persistence Length", palette="Set2")
+plt.title("⏳ Species Persistence Across Validators")
+plt.xlabel("Species")
+plt.ylabel("Consecutive Generations Held")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+Code 18
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# === Use the same flip sequences as before
+flip_sequences = {
+    18: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️"],
+    24: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️"],
+    30: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️"],
+    36: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️"],
+    42: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️"]
+}
+
+# === Count unique species per validator
+diversity_scores = {vid: len(set(seq)) for vid, seq in flip_sequences.items()}
+
+# === Create DataFrame
+diversity_df = pd.DataFrame(list(diversity_scores.items()), columns=["Validator", "Species Diversity"])
+
+# === Plot diversity
+plt.figure(figsize=(8, 5))
+plt.bar(diversity_df["Validator"].astype(str),
+        diversity_df["Species Diversity"],
+        color="mediumseagreen", edgecolor="black")
+plt.title("🧭 Flip Diversity Score – Species Richness per Validator")
+plt.xlabel("Validator")
+plt.ylabel("Number of Unique Species")
+plt.ylim(0, 5)
+plt.grid(axis="y")
+plt.tight_layout()
+plt.show()
+
+Code 19
+import networkx as nx
+import matplotlib.pyplot as plt
+
+# === Use the flip sequences from earlier
+flip_sequences = {
+    18: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️"],
+    24: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️"],
+    30: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️"],
+    36: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️"],
+    42: ["Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Echo Drifter 🌪️"]
+}
+
+# === Create graph
+G = nx.DiGraph()
+
+# Add edges from each validator’s species flips
+for seq in flip_sequences.values():
+    for i in range(len(seq) - 1):
+        G.add_edge(seq[i], seq[i + 1])
+
+# === Visualize graph
+plt.figure(figsize=(6, 5))
+pos = nx.spring_layout(G, seed=42)
+nx.draw(G, pos, with_labels=True, node_color="lightblue",
+        edge_color="gray", node_size=2000, font_size=10,
+        arrowsize=20, font_weight='bold')
+plt.title("🗺️ Validator Speciation Trajectories")
+plt.tight_layout()
+plt.show()
+
+
+Code 20
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# === Example transitions with trait deltas (extend with full dataset)
+transitions = pd.DataFrame({
+    "From": ["Echo Drifter 🌪️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Curvature Survivor 🛡️"],
+    "To":   ["Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Echo Drifter 🌪️", "Echo Drifter 🌪️"],
+    "Echo Δ": [-0.0777, 0.035, 0.0693, -0.0487],
+    "Curvature Δ": [0.0046, 0.0, 0.0, 0.0],
+    "Tension Δ": [0.0004, -0.0004, -0.0006, 0.0003],
+    "Phase Δ": [14.57, 4.21, 0.0, -3.94]
+})
+
+# === Add transition label
+transitions["Direction"] = transitions["From"] + " → " + transitions["To"]
+
+# === Plot trait deltas by transition direction
+traits = ["Echo Δ", "Curvature Δ", "Tension Δ", "Phase Δ"]
+
+plt.figure(figsize=(12, 6))
+for i, trait in enumerate(traits, 1):
+    plt.subplot(2, 2, i)
+    sns.boxplot(data=transitions, x="Direction", y=trait, palette="coolwarm")
+    plt.title(f"🔍 Trait Influence on {trait} by Transition")
+    plt.xticks(rotation=15)
+
+plt.tight_layout()
+plt.show()
+
+Code 21
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix
+import pandas as pd
+
+# === Example trait delta dataset (you can expand with full biome transitions)
+transitions = pd.DataFrame({
+    "From": ["Echo Drifter 🌪️", "Echo Drifter 🌪️", "Curvature Survivor 🛡️", "Curvature Survivor 🛡️"],
+    "To":   ["Curvature Survivor 🛡️", "Echo Drifter 🌪️", "Echo Drifter 🌪️", "Echo Drifter 🌪️"],
+    "Echo Δ": [-0.0777, 0.035, 0.0693, -0.0487],
+    "Curvature Δ": [0.0046, 0.0, 0.0, 0.0],
+    "Tension Δ": [0.0004, -0.0004, -0.0006, 0.0003],
+    "Phase Δ": [14.57, 4.21, 0.0, -3.94]
+})
+
+# === Define target variable: flip = 1 if species changes, else 0
+transitions["Flip"] = (transitions["From"] != transitions["To"]).astype(int)
+
+# === Features and target
+X = transitions[["Echo Δ", "Curvature Δ", "Tension Δ", "Phase Δ"]]
+y = transitions["Flip"]
+
+# === Train/test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# === Train classifier
+clf = RandomForestClassifier(n_estimators=100, random_state=42)
+clf.fit(X_train, y_train)
+
+# === Evaluate model
+y_pred = clf.predict(X_test)
+print("🧠 Flip Prediction Model Performance:")
+print(confusion_matrix(y_test, y_pred))
+print(classification_report(y_test, y_pred))
+
+
+Code 22
+import pandas as pd
+import numpy as np
+
+# === Generate synthetic transitions
+np.random.seed(42)
+n_samples = 100
+
+# Trait delta ranges based on observed biome behavior
+echo_deltas = np.random.uniform(-0.1, 0.1, n_samples)
+curv_deltas = np.random.uniform(-0.005, 0.005, n_samples)
+tension_deltas = np.random.uniform(-0.001, 0.001, n_samples)
+phase_deltas = np.random.uniform(-5, 15, n_samples)
+
+# === Define flip condition based on trait thresholds
+# Flip if echo collapse and large phase shift
+flips = ((echo_deltas < -0.05) & (phase_deltas > 5)).astype(int)
+
+# === Build DataFrame
+synthetic_data = pd.DataFrame({
+    "Echo Δ": echo_deltas,
+    "Curvature Δ": curv_deltas,
+    "Tension Δ": tension_deltas,
+    "Phase Δ": phase_deltas,
+    "Flip": flips
+})
+
+print("🧪 Synthetic Flip Dataset Preview:")
+print(synthetic_data.head())
+
+
+Code 23
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix
+import matplotlib.pyplot as plt
+
+# === Features and labels
+X = synthetic_data[["Echo Δ", "Curvature Δ", "Tension Δ", "Phase Δ"]]
+y = synthetic_data["Flip"]
+
+# === Train/test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# === Train model
+clf = RandomForestClassifier(n_estimators=100, random_state=42)
+clf.fit(X_train, y_train)
+
+# === Predict and evaluate
+y_pred = clf.predict(X_test)
+print("🧠 Boosted Model Performance:")
+print(confusion_matrix(y_test, y_pred))
+print(classification_report(y_test, y_pred))
+
+Code 24 
+
+import matplotlib.pyplot as plt
+
+# === Get feature importances from trained model
+feature_names = X.columns
+importances = clf.feature_importances_
+
+# === Sort and plot
+plt.figure(figsize=(7, 5))
+plt.barh(feature_names, importances, color="slateblue", edgecolor="black")
+plt.title("📊 Trait Importance for Flip Prediction")
+plt.xlabel("Relative Importance")
+plt.tight_layout()
+plt.show()
+
+Code 25
+# === Input custom trait deltas
+custom_validator = pd.DataFrame({
+    "Echo Δ": [-0.08],       # echo collapse
+    "Curvature Δ": [0.002],  # mild stabilizer
+    "Tension Δ": [0.0003],   # slight biome pull
+    "Phase Δ": [10.5]        # strong divergence
+})
+
+# === Predict flip outcome
+prediction = clf.predict(custom_validator)[0]
+result = "🔁 Species Flip" if prediction == 1 else "🧱 Identity Held"
+
+print(f"🎯 Prediction Result: {result}")
+
+Code 26
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+from sklearn.ensemble import RandomForestClassifier
+
+# === Use trained classifier from earlier
+# Define grid range for Echo Δ and Phase Δ
+echo_range = np.linspace(-0.1, 0.1, 100)
+phase_range = np.linspace(-5, 15, 100)
+echo_grid, phase_grid = np.meshgrid(echo_range, phase_range)
+
+# === Create test grid of trait combinations
+test_grid = pd.DataFrame({
+    "Echo Δ": echo_grid.ravel(),
+    "Curvature Δ": [0.0] * echo_grid.size,    # fixed
+    "Tension Δ": [0.0] * echo_grid.size,      # fixed
+    "Phase Δ": phase_grid.ravel()
+})
+
+# === Predict flips over grid
+flip_preds = clf.predict(test_grid).reshape(echo_grid.shape)
+
+# === Plot decision boundary
+plt.figure(figsize=(8, 6))
+cmap = ListedColormap(["lightgrey", "darkorange"])
+plt.contourf(echo_grid, phase_grid, flip_preds, cmap=cmap, alpha=0.6)
+plt.xlabel("Echo Δ")
+plt.ylabel("Phase Δ")
+plt.title("🌌 Flip Zone Map — Species Change Boundary")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+Code 27
+
+
+
+
+
+
+
+
+
+
+
+
+
